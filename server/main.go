@@ -20,7 +20,7 @@ var (
 	mu      sync.Mutex
 )
 
-const passwd = "root:MYSQLtianwenjie@/chat"
+const passwd = "****"
 
 func main() {
 	flag.Parse()
