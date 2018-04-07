@@ -8,18 +8,21 @@ import (
 	"server/chat/protocol"
 )
 
-var (
-	db        *sql.DB
-	userTable = "user"
-)
-
-func OpenMysql(dataSourceName string) (*sql.DB, error) {
-	var err error
-	db, err = sql.Open("mysql", dataSourceName)
-	return db, err
+type DB struct {
+	sql.DB
+	userTable string
 }
 
-func Register(user *protocol.User) error {
+func OpenMySQL(dataSourceName string) (*DB, error) {
+	d, err := sql.Open("mysql", dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	db := &DB{DB: *d, userTable: "users"}
+	return db, nil
+}
+
+func (db *DB) Register(user *protocol.User) error {
 	_, err := db.Exec(`INSERT INTO users VALUES(?,?,?,?)`,
 		user.ID,
 		user.Name,
@@ -28,7 +31,7 @@ func Register(user *protocol.User) error {
 	return err
 }
 
-func IsIDExist(ID string) bool {
+func (db *DB) IsIDExist(ID string) bool {
 	row, err := db.Query("SELECT * FROM users WHERE id=?", ID)
 	if err != nil {
 		log.Fatal("isIDExist: %v", err)
@@ -42,17 +45,19 @@ func IsIDExist(ID string) bool {
 	return false
 }
 
-func UserData(ID string) *protocol.User {
+func (db *DB) UserData(ID string) *protocol.User {
+	log.Print("Enter DB.UserData")
 	var user protocol.User
 	err := db.QueryRow("SELECT * FROM users WHERE id=?", ID).Scan(
 		&user.ID, &user.Name, &user.Sex, &user.Birth)
 	if err != nil {
+		log.Print("databse: UserData ", err)
 		return nil
 	}
 	return &user
 }
 
-func PreserveMessage(data *protocol.Data) error {
+func (db *DB) PreserveMessage(data *protocol.Data) error {
 	_, err := db.Exec("INSERT INTO messages VALUES(?,?,?,?)",
 		data.Time, data.ID, data.Receiver.ID, data.Content)
 	if err != nil {
@@ -61,7 +66,7 @@ func PreserveMessage(data *protocol.Data) error {
 	return nil
 }
 
-func MessagePreserved(ID string) []protocol.Data {
+func (db *DB) MessagePreserved(ID string) []protocol.Data {
 	rows, err := db.Query("SELECT time, sender, name, sex, birth, receiver, content from users, messages where id=sender and receiver=?", ID)
 	if err != nil {
 		log.Print(err)

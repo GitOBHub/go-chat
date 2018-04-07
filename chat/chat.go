@@ -24,12 +24,10 @@ func (conn *Connection) ReadData() *protocol.Data {
 		return nil
 	}
 	data := make([]byte, dataLen)
-	fmt.Printf("ReadData: slice len: %d\n", len(data))
 	//	if _, err := io.ReadFull(conn.Conn, data); err != nil {
 	if _, err := conn.Conn.(*net.TCPConn).Read(data); err != nil {
 		return nil
 	}
-	fmt.Println("ReadData: finish")
 	return protocol.DecodeData(data)
 }
 
@@ -39,7 +37,6 @@ func (conn *Connection) SendData(data *protocol.Data) (int, error) {
 }
 
 func (conn *Connection) SendMessageto(msg string, receiver string) (int, error) {
-	fmt.Printf("SendMessageto: len of msg: %d\n", len(msg))
 	var data protocol.Data
 	data.Type = protocol.Normal
 	data.Time = time.Now().Format("15:04:05")
