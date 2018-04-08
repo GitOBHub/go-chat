@@ -7,7 +7,7 @@ import (
 	"server/chat/protocol"
 )
 
-func (s *Server) login(conn *chat.Connection, data *protocol.Data) {
+func (s *ChatServer) login(conn *chat.Connection, data *protocol.Data) {
 	log.Print("Enter login()")
 	_, dup := s.clients[data.ID]
 	if dup {
@@ -26,7 +26,7 @@ func (s *Server) login(conn *chat.Connection, data *protocol.Data) {
 	return
 }
 
-func (s *Server) signup(conn *chat.Connection, data *protocol.Data) {
+func (s *ChatServer) signup(conn *chat.Connection, data *protocol.Data) {
 	conn.User = data.User
 	s.mu.Lock()
 	defer s.mu.Unlock()

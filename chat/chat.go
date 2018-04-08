@@ -1,31 +1,31 @@
 package chat
 
 import (
-	"encoding/binary"
 	"fmt"
-	//"io"
+	"log"
 	"net"
 	"sync"
 	"time"
 
+	"net/conns"
 	"server/chat/protocol"
 )
 
 type Connection struct {
-	net.Conn
-	Number int
+	conns.Connection
 	protocol.User
 	Mu sync.Mutex
 }
 
+func NewConn(c net.Conn, num int) *Connection {
+	conn := conns.Connection{c, num}
+	return &Connection{Connection: conn}
+}
+
 func (conn *Connection) ReadData() *protocol.Data {
-	var dataLen uint64
-	if err := binary.Read(conn.Conn, binary.LittleEndian, &dataLen); err != nil {
-		return nil
-	}
-	data := make([]byte, dataLen)
-	//	if _, err := io.ReadFull(conn.Conn, data); err != nil {
-	if _, err := conn.Conn.(*net.TCPConn).Read(data); err != nil {
+	data, err := conn.Read()
+	if err != nil {
+		log.Print("*Connection.ReadData: Read ", err)
 		return nil
 	}
 	return protocol.DecodeData(data)
@@ -33,7 +33,7 @@ func (conn *Connection) ReadData() *protocol.Data {
 
 func (conn *Connection) SendData(data *protocol.Data) (int, error) {
 	pack := protocol.EncodeData(data)
-	return conn.Conn.(*net.TCPConn).Write(pack)
+	return conn.Send(pack)
 }
 
 func (conn *Connection) SendMessageto(msg string, receiver string) (int, error) {

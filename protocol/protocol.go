@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"encoding/binary"
 	"strings"
 )
 
@@ -72,8 +71,8 @@ func EncodeData(data *Data) []byte {
 		data.Receiver.ID, data.Receiver.Name, data.Receiver.Sex, data.Receiver.Birth,
 		data.Content}
 	d := []byte(strings.Join(members, "\r\n"))
-	head := make([]byte, headLen)
-	binary.PutUvarint(head, uint64(len(d)+1))
-	head = append(head, data.Type)
-	return append(head, d...)
+	//	head := make([]byte, headLen)
+	//	binary.PutUvarint(head, uint64(len(d)+1))
+	//	head = append(head, data.Type)
+	return append([]byte{data.Type}, d...)
 }

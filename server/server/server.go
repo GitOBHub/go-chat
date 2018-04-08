@@ -2,37 +2,35 @@ package server
 
 import (
 	"log"
-	"net"
 	"sync"
 	"time"
 
+	"net/server"
 	"server/chat/chat"
 	"server/chat/database"
 	"server/chat/protocol"
 )
 
-type Server struct {
-	listener net.Listener
-	Address  string
-	NumConn  int //uint64
-	mu       sync.Mutex
-	db       *database.DB
-	clients  map[string]*chat.Connection
+type ChatServer struct {
+	server.Server
+	mu      sync.Mutex
+	db      *database.DB
+	clients map[string]*chat.Connection
 }
 
-func NewServer(addr string, db *database.DB) (*Server, error) {
-	ln, err := net.Listen("tcp", addr)
+func NewServer(addr string, db *database.DB) (*ChatServer, error) {
+	s, err := server.NewServer(addr)
 	if err != nil {
 		return nil, err
 	}
 	cs := make(map[string]*chat.Connection, 10)
-	srv := &Server{listener: ln, Address: addr, clients: cs, db: db}
+	srv := &ChatServer{Server: *s, clients: cs, db: db}
 	return srv, nil
 }
 
-func (s *Server) Serve() {
+func (s *ChatServer) Serve() {
 	for {
-		c, err := s.listener.Accept()
+		c, err := s.Listener.Accept()
 		if err != nil {
 			log.Print(err)
 			continue
@@ -40,13 +38,13 @@ func (s *Server) Serve() {
 		s.mu.Lock()
 		s.NumConn++
 		s.mu.Unlock()
-		conn := &chat.Connection{Conn: c, Number: s.NumConn}
+		conn := chat.NewConn(c, s.NumConn)
 		log.Printf("connection#%d is up", conn.Number)
 		go s.handleConn(conn)
 	}
 }
 
-func (s *Server) handleConn(conn *chat.Connection) {
+func (s *ChatServer) handleConn(conn *chat.Connection) {
 	defer func() {
 		conn.Close()
 		log.Printf("connection#%d is down", conn.Number)
@@ -64,7 +62,7 @@ func (s *Server) handleConn(conn *chat.Connection) {
 	delete(s.clients, conn.ID)
 }
 
-func (s *Server) handleMessage(conn *chat.Connection, data *protocol.Data) {
+func (s *ChatServer) handleMessage(conn *chat.Connection, data *protocol.Data) {
 	if data.Type == protocol.Error { //|| data.Type == protocol.Success {
 		conn.SendError("Bad request")
 		return

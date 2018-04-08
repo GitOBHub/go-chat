@@ -53,7 +53,7 @@ func main() {
 		//FIXME: c.Close()
 	}()
 
-	conn := &chat.Connection{Conn: c}
+	conn := chat.NewConn(c, 1)
 	if *isSignup {
 		signup(conn)
 	} else {
@@ -108,8 +108,7 @@ func handleKeyInput(conn *chat.Connection) {
 			muSent.Lock()
 			sent = true
 			muSent.Unlock()
-			n, err := conn.SendMessageto(msg, friend)
-			log.Printf("SendMessageto return %d\n", n)
+			_, err := conn.SendMessageto(msg, friend)
 			if err != nil {
 				print.PrintErrorln("%s", err)
 			}

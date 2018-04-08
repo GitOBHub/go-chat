@@ -18,6 +18,9 @@ func OpenMySQL(dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := d.Ping(); err != nil {
+		return nil, err
+	}
 	db := &DB{DB: *d, userTable: "users"}
 	return db, nil
 }
