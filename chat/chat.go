@@ -3,12 +3,11 @@ package chat
 import (
 	"fmt"
 	"log"
-	"net"
 	"sync"
 	"time"
 
-	"net/conns"
-	"server/chat/protocol"
+	"github.com/GitOBHub/net/conns"
+	"go-chat/protocol"
 )
 
 type Connection struct {
@@ -17,13 +16,12 @@ type Connection struct {
 	Mu sync.Mutex
 }
 
-func NewConn(c net.Conn, num int) *Connection {
-	conn := conns.Connection{c, num}
-	return &Connection{Connection: conn}
+func NewConn(c *conns.Connection) *Connection {
+	return &Connection{Connection: *c}
 }
 
 func (conn *Connection) ReadData() *protocol.Data {
-	data, err := conn.Read()
+	data, err := conn.Recv()
 	if err != nil {
 		log.Print("*Connection.ReadData: Read ", err)
 		return nil

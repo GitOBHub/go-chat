@@ -1,7 +1,7 @@
-package print_test
+package color_test
 
 import (
-	"server/chat/print"
+	"go-chat/color"
 	"testing"
 )
 

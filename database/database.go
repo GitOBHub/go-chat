@@ -5,7 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 
-	"server/chat/protocol"
+	"go-chat/protocol"
 )
 
 type DB struct {

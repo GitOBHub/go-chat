@@ -1,4 +1,4 @@
-package print
+package color
 
 import "fmt"
 

@@ -12,9 +12,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"server/chat/chat"
-	"server/chat/print"
-	"server/chat/protocol"
+	"github.com/GitOBHub/net/conns"
+	"go-chat/chat"
+	"go-chat/color"
+	"go-chat/protocol"
 )
 
 var (
@@ -53,7 +54,7 @@ func main() {
 		//FIXME: c.Close()
 	}()
 
-	conn := chat.NewConn(c, 1)
+	conn := chat.NewConn(&conns.Connection{c, 1, true})
 	if *isSignup {
 		signup(conn)
 	} else {
@@ -66,13 +67,13 @@ func main() {
 func handleKeyInput(conn *chat.Connection) {
 	input := bufio.NewScanner(os.Stdin)
 	for {
-		print.PrintPrompt(" Select a freind for chat ")
+		color.PrintPrompt(" Select a freind for chat ")
 		if !input.Scan() {
 			break
 		}
 		friend := input.Text()
 		if !isIDValid(friend) {
-			print.PrintErrorln(" Invalid user ID! input again ")
+			color.PrintErrorln(" Invalid user ID! input again ")
 			continue
 		}
 		toChat = friend
@@ -82,7 +83,7 @@ func handleKeyInput(conn *chat.Connection) {
 			continue
 		}
 		changeChating(friend)
-		print.PrintPrompt(" Input your message \n")
+		color.PrintPrompt(" Input your message \n")
 		var eof bool
 		for {
 			if eof = !input.Scan(); eof {
@@ -98,19 +99,17 @@ func handleKeyInput(conn *chat.Connection) {
 			muRecv.Unlock()
 
 			msg := input.Text()
-			//debug
-			fmt.Printf("client: msg len %d", len(msg))
 			if len(msg) == 0 {
 				break
 			}
-			//		printMessageBlock(msg, right)
+			colorMessageBlock(msg, right)
 
 			muSent.Lock()
 			sent = true
 			muSent.Unlock()
 			_, err := conn.SendMessageto(msg, friend)
 			if err != nil {
-				print.PrintErrorln("%s", err)
+				color.PrintErrorln("%s", err)
 			}
 		}
 		if eof {
@@ -126,7 +125,7 @@ func handleConnInput(conn *chat.Connection) {
 			break
 		}
 		if data.Type == protocol.Error {
-			print.PrintErrorln(" %s ", data.Content)
+			color.PrintErrorln(" %s ", data.Content)
 			muChat.Lock()
 			info := fmt.Sprintf("ID %s does not exist", toChat)
 			muChat.Unlock()
@@ -142,7 +141,7 @@ func handleConnInput(conn *chat.Connection) {
 			}
 			continue
 		}
-		printMessage(data)
+		colorMessage(data)
 	}
 	fmt.Println("\nConnection closed by foreign host")
 	os.Exit(0)
@@ -166,7 +165,7 @@ const (
 	left
 )
 
-func printMessage(data *protocol.Data) {
+func colorMessage(data *protocol.Data) {
 	muChat.Lock()
 	if chating != data.ID {
 		messageRemind(data)
@@ -183,21 +182,21 @@ func printMessage(data *protocol.Data) {
 
 	fmt.Printf("%s ", data.Time)
 	fmt.Printf("\033[43;30m%s\033[0m ", data.Name)
-	//printMessageBlock(data.Content, left)
+	colorMessageBlock(data.Content, left)
 	muRecv.Lock()
 	received = true
 	muRecv.Unlock()
 }
 
-func printMessageBlock(msg string, whichSide int) {
+func colorMessageBlock(msg string, whichSide int) {
 	var lenPrint int
 	msgRunes := []rune(msg)
 	var lines [][]rune
 	var nLine int
 	for _, r := range msgRunes {
-		if _, ok := symbols[r]; ok { //2or3 bytes per rune, printed in 1 space
+		if _, ok := symbols[r]; ok { //2or3 bytes per rune, colored in 1 space
 			lenPrint += 1
-		} else if utf8.RuneLen(r) == 3 { //3 bytes per rune, printed in 2 space
+		} else if utf8.RuneLen(r) == 3 { //3 bytes per rune, colored in 2 space
 			lenPrint += 2
 		} else {
 			lenPrint += 1
@@ -269,13 +268,13 @@ func login(conn *chat.Connection) {
 	in := bufio.NewScanner(os.Stdin)
 	var userData protocol.User
 	for {
-		print.PrintPrompt(" User ID ")
+		color.PrintPrompt(" User ID ")
 		if !in.Scan() {
 			os.Exit(0)
 		}
 		id := in.Text()
 		if !isIDValid(id) {
-			print.PrintErrorln(" Invalid user ID! input again ")
+			color.PrintErrorln(" Invalid user ID! input again ")
 			continue
 		}
 		userData.ID = id
@@ -286,48 +285,48 @@ func login(conn *chat.Connection) {
 			os.Exit(0)
 		}
 		if resp.Type == protocol.Other && resp.Content == "login" {
-			print.PrintPrompt(" Login successfully \n")
+			color.PrintPrompt(" Login successfully \n")
 			conn.User = resp.User
 			return
 		}
 		if resp.Type == protocol.Error {
-			print.PrintErrorln(" %s ", resp.Content)
+			color.PrintErrorln(" %s ", resp.Content)
 			continue
 		}
-		print.PrintErrorln(" Unknown data: %s ", resp.Content)
+		color.PrintErrorln(" Unknown data: %s ", resp.Content)
 	}
 
 }
 
 func signup(conn *chat.Connection) {
-	print.PrintPrompt(" Sign up \n")
+	color.PrintPrompt(" Sign up \n")
 	var userData protocol.User
 	in := bufio.NewScanner(os.Stdin)
 	for {
-		print.PrintPrompt(" User ID ")
+		color.PrintPrompt(" User ID ")
 		if !in.Scan() {
 			os.Exit(0)
 		}
 		id := in.Text()
 		if !isIDValid(id) {
-			print.PrintErrorln(" Invalid user ID! input again ")
+			color.PrintErrorln(" Invalid user ID! input again ")
 			continue
 		}
 		userData.ID = id
 		//
-		print.PrintPrompt(" Username ")
+		color.PrintPrompt(" Username ")
 		if !in.Scan() {
 			os.Exit(0)
 		}
 		userData.Name = in.Text()
 		//
-		print.PrintPrompt(" Sex ")
+		color.PrintPrompt(" Sex ")
 		if !in.Scan() {
 			os.Exit(0)
 		}
 		userData.Sex = in.Text()
 		//
-		print.PrintPrompt("Birth")
+		color.PrintPrompt("Birth")
 		if !in.Scan() {
 			os.Exit(0)
 		}
@@ -340,14 +339,14 @@ func signup(conn *chat.Connection) {
 			os.Exit(0)
 		}
 		if resp.Type == protocol.Other && resp.Content == "signup" {
-			print.PrintPrompt(" Sign up finished \n")
+			color.PrintPrompt(" Sign up finished \n")
 			return
 		}
 		if resp.Type == protocol.Error {
-			print.PrintErrorln(" %s ", resp.Content)
+			color.PrintErrorln(" %s ", resp.Content)
 			continue
 		}
-		print.PrintErrorln(" BUG! unknown data: %s", resp.Content)
+		color.PrintErrorln(" BUG! unknown data: %s", resp.Content)
 	}
 }
 

@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"server/chat/database"
-	"server/chat/server/server"
+	"go-chat/database"
+	"go-chat/server"
 )
 
 var port = flag.String("port", "5000", "port")
@@ -21,11 +21,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv, err := server.NewServer(laddr, db)
-	if err != nil {
-		log.Fatal(err)
-	}
 
+	srv := server.NewChatServer(laddr, db)
 	fmt.Printf("pid: %d    port: %s\n", os.Getpid(), *port)
-	srv.Serve()
+	log.Fatal(srv.ListenAndServe())
 }
