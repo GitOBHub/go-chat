@@ -8,36 +8,24 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 	"unicode"
-	"unicode/utf8"
 
-	"github.com/GitOBHub/net/conns"
 	"go-chat/chat"
+	"go-chat/client/session"
 	"go-chat/color"
-	"go-chat/protocol"
+	"go-chat/proto"
 )
 
 var (
-	muRecv   sync.Mutex
-	received bool
-	muSent   sync.Mutex
-	sent     bool
-	muChat   sync.Mutex
-	chating  string
-	toChat   string
-
-	msgCache = make(map[string]string)
 	isSignup = flag.Bool("signup", false, "Sign up")
+
+	mu       sync.Mutex
+	sessions = make(map[string]*session.Session)
+
+	loginDone  = make(chan *proto.Data)
+	signupDone = make(chan *proto.Data)
+	idExist    = make(chan *proto.Data)
 )
-
-var idExist = make(chan bool)
-
-//var symbolStr = "‘’“”…·①②③④⑤⑥⑦⑧⑨⑩
-var symbols = map[rune]bool{
-	'‘': true, '’': true, '“': true,
-	'”': true, '…': true,
-}
 
 func main() {
 	/*	if len(os.Args) == 1 {
@@ -50,24 +38,35 @@ func main() {
 		log.Fatal(err)
 	}
 	defer func() {
-		fmt.Println()
+		//fmt.Println()
 		//FIXME: c.Close()
 	}()
 
-	conn := chat.NewConn(&conns.Connection{c, 1, true})
+	conn := chat.NewChatConn(c)
+	go handleConnInput(conn)
 	if *isSignup {
 		signup(conn)
 	} else {
 		login(conn)
 	}
-	go handleConnInput(conn)
-	handleKeyInput(conn)
+	startChat(conn)
 }
 
-func handleKeyInput(conn *chat.Connection) {
+func startChat(conn *chat.ChatConn) {
 	input := bufio.NewScanner(os.Stdin)
 	for {
-		color.PrintPrompt(" Select a freind for chat ")
+		if len(sessions) > 0 {
+			color.PrintBlueln(" Unread message from ")
+		}
+		for _, sess := range sessions {
+			color.PrintBlue(" %s ", sess.ID)
+			fmt.Print("\t")
+		}
+		if len(sessions) > 0 {
+			fmt.Println()
+		}
+
+		color.PrintPrompt(" Select a freind for chat \n")
 		if !input.Scan() {
 			break
 		}
@@ -76,175 +75,50 @@ func handleKeyInput(conn *chat.Connection) {
 			color.PrintErrorln(" Invalid user ID! input again ")
 			continue
 		}
-		toChat = friend
-		conn.SendOtherto("IsIDExist", friend)
-		if ok := <-idExist; !ok {
-			toChat = ""
+		conn.SendRequest("isIDExist", friend)
+		resp := <-idExist
+		if resp.Type == proto.Error {
+			color.PrintErrorln(" %s ", resp.Content)
 			continue
 		}
-		changeChating(friend)
-		color.PrintPrompt(" Input your message \n")
-		var eof bool
-		for {
-			if eof = !input.Scan(); eof {
-				break
-			}
-			fmt.Printf("\033[1A\033[K")
-
-			muRecv.Lock() //使前后打印出的消息间隔合理
-			if !received {
-				fmt.Println()
-			}
-			received = false
-			muRecv.Unlock()
-
-			msg := input.Text()
-			if len(msg) == 0 {
-				break
-			}
-			colorMessageBlock(msg, right)
-
-			muSent.Lock()
-			sent = true
-			muSent.Unlock()
+		sess, ok := sessions[friend]
+		if !ok {
+			sess = session.NewSession(friend)
+			sessions[friend] = sess
+		}
+		sess.Run()
+		for msg := range sess.ToSend {
 			_, err := conn.SendMessageto(msg, friend)
 			if err != nil {
 				color.PrintErrorln("%s", err)
 			}
 		}
-		if eof {
-			break
-		}
+		delete(sessions, sess.ID)
 	}
 }
 
-func handleConnInput(conn *chat.Connection) {
+func handleConnInput(conn *chat.ChatConn) {
 	for {
 		data := conn.ReadData()
 		if data == nil {
 			break
 		}
-		if data.Type == protocol.Error {
-			color.PrintErrorln(" %s ", data.Content)
-			muChat.Lock()
-			info := fmt.Sprintf("ID %s does not exist", toChat)
-			muChat.Unlock()
-			if data.Content == info {
-				idExist <- false
+
+		if data.Type != proto.Normal {
+			switch data.Topic {
+			case "isIDExist":
+				idExist <- data
+			case "login":
+				loginDone <- data
+			case "signup":
+				signupDone <- data
 			}
 			continue
 		}
-		if data.Type == protocol.Other {
-			switch data.Content {
-			case "IsIDExist":
-				idExist <- true
-			}
-			continue
-		}
-		colorMessage(data)
+		prepareMessage(data)
 	}
-	fmt.Println("\nConnection closed by foreign host")
+	fmt.Println("Connection closed by foreign host")
 	os.Exit(0)
-}
-
-func changeChating(who string) {
-	muChat.Lock()
-	chating = who
-	msgs, ok := msgCache[who]
-	if !ok {
-		muChat.Unlock()
-		return
-	}
-	delete(msgCache, who)
-	muChat.Unlock()
-	fmt.Print(msgs)
-}
-
-const (
-	right int = iota
-	left
-)
-
-func colorMessage(data *protocol.Data) {
-	muChat.Lock()
-	if chating != data.ID {
-		messageRemind(data)
-		muChat.Unlock()
-		return
-	}
-	muChat.Unlock()
-	muSent.Lock()
-	if !sent {
-		fmt.Println()
-	}
-	sent = false
-	muSent.Unlock()
-
-	fmt.Printf("%s ", data.Time)
-	fmt.Printf("\033[43;30m%s\033[0m ", data.Name)
-	colorMessageBlock(data.Content, left)
-	muRecv.Lock()
-	received = true
-	muRecv.Unlock()
-}
-
-func colorMessageBlock(msg string, whichSide int) {
-	var lenPrint int
-	msgRunes := []rune(msg)
-	var lines [][]rune
-	var nLine int
-	for _, r := range msgRunes {
-		if _, ok := symbols[r]; ok { //2or3 bytes per rune, colored in 1 space
-			lenPrint += 1
-		} else if utf8.RuneLen(r) == 3 { //3 bytes per rune, colored in 2 space
-			lenPrint += 2
-		} else {
-			lenPrint += 1
-		}
-		if lenPrint%15 == 0 {
-			lines = append(lines, msgRunes[nLine*15:nLine*15+15])
-			nLine++
-		}
-	}
-	if lenPrint-nLine*15 < 15 {
-		lines = append(lines, msgRunes[nLine*15:])
-	}
-	placePrint := 0
-	if whichSide == right {
-		if lenPrint < 15 {
-			placePrint = 50 - lenPrint
-		} else {
-			placePrint = 35
-		}
-	}
-	for i, line := range lines {
-		fmt.Printf("\033[%dC", placePrint)
-		lineStr := string(line)
-		fmt.Printf("\033[42;30m %s ", lineStr)
-		if i == 0 {
-			if whichSide == right {
-				fmt.Printf("\033[0m %s\n", time.Now().Format("15:04:05"))
-				continue
-			}
-		} else if i == len(lines)-1 && len(lines) > 1 {
-			if len(line) < 15 {
-				for i := 0; i < 15-len(line); i++ {
-					fmt.Print(" ")
-				}
-			}
-		}
-		fmt.Println("\033[0m")
-		if whichSide == left {
-			fmt.Printf("\033[14C")
-		}
-	}
-	//fmt.Print("\n")
-}
-
-func messageRemind(data *protocol.Data) {
-	fmt.Printf("\033[44;30m New message from %s \033[0m\n", data.Name)
-	toPrint := fmt.Sprintf("%s \033[43;30m%s\033[0m \033[7m %s \033[0m\n\n", data.Time, data.Name, data.Content)
-	msgCache[data.ID] += toPrint
 }
 
 func isIDValid(id string) bool {
@@ -262,95 +136,4 @@ func isIDValid(id string) bool {
 		return false
 	}*/
 	return true
-}
-
-func login(conn *chat.Connection) {
-	in := bufio.NewScanner(os.Stdin)
-	var userData protocol.User
-	for {
-		color.PrintPrompt(" User ID ")
-		if !in.Scan() {
-			os.Exit(0)
-		}
-		id := in.Text()
-		if !isIDValid(id) {
-			color.PrintErrorln(" Invalid user ID! input again ")
-			continue
-		}
-		userData.ID = id
-		sendUserData(conn, &userData, "login")
-		resp := conn.ReadData()
-		if resp == nil {
-			log.Print("\nConnection closed by foreign host")
-			os.Exit(0)
-		}
-		if resp.Type == protocol.Other && resp.Content == "login" {
-			color.PrintPrompt(" Login successfully \n")
-			conn.User = resp.User
-			return
-		}
-		if resp.Type == protocol.Error {
-			color.PrintErrorln(" %s ", resp.Content)
-			continue
-		}
-		color.PrintErrorln(" Unknown data: %s ", resp.Content)
-	}
-
-}
-
-func signup(conn *chat.Connection) {
-	color.PrintPrompt(" Sign up \n")
-	var userData protocol.User
-	in := bufio.NewScanner(os.Stdin)
-	for {
-		color.PrintPrompt(" User ID ")
-		if !in.Scan() {
-			os.Exit(0)
-		}
-		id := in.Text()
-		if !isIDValid(id) {
-			color.PrintErrorln(" Invalid user ID! input again ")
-			continue
-		}
-		userData.ID = id
-		//
-		color.PrintPrompt(" Username ")
-		if !in.Scan() {
-			os.Exit(0)
-		}
-		userData.Name = in.Text()
-		//
-		color.PrintPrompt(" Sex ")
-		if !in.Scan() {
-			os.Exit(0)
-		}
-		userData.Sex = in.Text()
-		//
-		color.PrintPrompt("Birth")
-		if !in.Scan() {
-			os.Exit(0)
-		}
-		userData.Birth = in.Text()
-		//
-		sendUserData(conn, &userData, "signup")
-		resp := conn.ReadData()
-		if resp == nil {
-			log.Print("\nConnection closed by foreign host")
-			os.Exit(0)
-		}
-		if resp.Type == protocol.Other && resp.Content == "signup" {
-			color.PrintPrompt(" Sign up finished \n")
-			return
-		}
-		if resp.Type == protocol.Error {
-			color.PrintErrorln(" %s ", resp.Content)
-			continue
-		}
-		color.PrintErrorln(" BUG! unknown data: %s", resp.Content)
-	}
-}
-
-func sendUserData(conn *chat.Connection, user *protocol.User, event string) {
-	conn.User = *user
-	conn.SendOther(event)
 }

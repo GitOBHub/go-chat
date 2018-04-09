@@ -3,75 +3,84 @@ package chat
 import (
 	"fmt"
 	"log"
+	"net"
 	"sync"
 	"time"
 
 	"github.com/GitOBHub/net/conns"
-	"go-chat/protocol"
+	"go-chat/proto"
 )
 
-type Connection struct {
-	conns.Connection
-	protocol.User
+type ChatConn struct {
+	conns.Conn
+	proto.User
 	Mu sync.Mutex
 }
 
-func NewConn(c *conns.Connection) *Connection {
-	return &Connection{Connection: *c}
+func NewChatConn(c net.Conn) *ChatConn {
+	conn := conns.NewConn(c)
+	return &ChatConn{Conn: *conn}
 }
 
-func (conn *Connection) ReadData() *protocol.Data {
+func (conn *ChatConn) ReadData() *proto.Data {
 	data, err := conn.Recv()
 	if err != nil {
-		log.Print("*Connection.ReadData: Read ", err)
+		log.Print("*ChatConn.ReadData: Read ", err)
 		return nil
 	}
-	return protocol.DecodeData(data)
+	return proto.DecodeData(data)
 }
 
-func (conn *Connection) SendData(data *protocol.Data) (int, error) {
-	pack := protocol.EncodeData(data)
-	return conn.Send(pack)
+func (conn *ChatConn) SendData(data *proto.Data) (int, error) {
+	toSend := proto.EncodeData(data)
+	return conn.Send(toSend)
 }
 
-func (conn *Connection) SendMessageto(msg string, receiver string) (int, error) {
-	var data protocol.Data
-	data.Type = protocol.Normal
+//Called by server
+func (conn *ChatConn) sendResponse(respType byte, topic, content string) (int, error) {
+	data := new(proto.Data)
+	data.Type = respType
 	data.Time = time.Now().Format("15:04:05")
-	data.User = conn.User
-	data.Receiver.ID = receiver
+	data.Topic = topic
+	data.Content = content
+	return conn.SendData(data)
+}
+
+func (conn *ChatConn) SendSuccess(topic, content string) (int, error) {
+	return conn.sendResponse(proto.Success, topic, content)
+}
+
+func (conn *ChatConn) SendSuccessf(topic, format string, args ...interface{}) (int, error) {
+	content := fmt.Sprintf(format, args...)
+	return conn.SendSuccess(topic, content)
+}
+
+func (conn *ChatConn) SendError(topic, content string) (int, error) {
+	return conn.sendResponse(proto.Error, topic, content)
+}
+
+func (conn *ChatConn) SendErrorf(topic, format string, args ...interface{}) (int, error) {
+	content := fmt.Sprintf(format, args...)
+	return conn.SendError(topic, content)
+}
+
+//Called by client
+func (conn *ChatConn) SendMessageto(msg string, receiver string) (int, error) {
+	data := new(proto.Data)
+	data.Type = proto.Normal
+	data.Sender = conn.User.ID
+	data.Receiver = receiver
+	data.Time = time.Now().Format("15:04:05")
 	data.Content = msg
-	return conn.SendData(&data)
+	return conn.SendData(data)
 }
 
-func (conn *Connection) SendError(err string) (int, error) {
-	var data protocol.Data
-	data.Type = protocol.Error
+func (conn *ChatConn) SendRequest(topic, content string) (int, error) {
+	data := new(proto.Data)
+	data.Type = proto.Request
+	data.Sender = conn.User.ID
 	data.Time = time.Now().Format("15:04:05")
-	data.Content = err
-	return conn.SendData(&data)
-}
-
-func (conn *Connection) SendErrorf(format string, args ...interface{}) (int, error) {
-	err := fmt.Sprintf(format, args...)
-	return conn.SendError(err)
-}
-
-func (conn *Connection) SendOther(other string) (int, error) {
-	var data protocol.Data
-	data.Type = protocol.Other
-	data.Time = time.Now().Format("15:04:05")
-	data.User = conn.User
-	data.Content = other
-	return conn.SendData(&data)
-}
-
-func (conn *Connection) SendOtherto(other string, receiver string) {
-	var data protocol.Data
-	data.Type = protocol.Other
-	data.Time = time.Now().Format("15:04:05")
-	data.User = conn.User
-	data.Receiver.ID = receiver
-	data.Content = other
-	conn.SendData(&data)
+	data.Topic = topic
+	data.Content = content
+	return conn.SendData(data)
 }

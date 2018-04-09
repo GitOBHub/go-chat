@@ -4,29 +4,34 @@ import (
 	"log"
 
 	"go-chat/chat"
-	"go-chat/protocol"
+	"go-chat/proto"
 )
 
-func login(conn *chat.Connection, data *protocol.Data) {
+func login(conn *chat.ChatConn, content string) {
 	log.Print("Enter login()")
-	_, dup := clients[data.ID]
+	user := proto.DecodeUser(content)
+	_, dup := clients[user.ID]
 	if dup {
-		conn.SendErrorf("ID %s is online", data.ID)
+		conn.SendErrorf("login", "ID %s is online", user.ID)
 		return
 	}
-	userData := db.UserData(data.ID)
-	if userData == nil {
-		conn.SendErrorf("ID %s does not exist", data.ID)
+	userSaved := db.UserData(user.ID)
+	if userSaved == nil {
+		conn.SendErrorf("login", "ID %s does not exist", user.ID)
 		return
 	}
-	clients[data.ID] = conn
-	connIDs[conn.Number] = data.ID
-	conn.User = *userData
-	conn.SendOther("login")
-	log.Printf("ID %s login", conn.ID)
-	datas := db.MessagePreserved(data.ID)
+
+	log.Printf("ID %s login", user.ID)
+	datas := db.RestoreMessage(user.ID)
 	for _, d := range datas {
 		conn.SendData(&d)
 	}
+
+	user = userSaved
+	toSend := proto.EncodeUser(user)
+	conn.SendSuccess("login", toSend)
+	conn.User = *user
+	clients[user.ID] = conn
+	//	connIDs[conn.Number] = user.ID
 	return
 }

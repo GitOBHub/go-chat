@@ -5,7 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 
-	"go-chat/protocol"
+	"go-chat/proto"
 )
 
 type DB struct {
@@ -25,7 +25,7 @@ func OpenMySQL(dataSourceName string) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) Register(user *protocol.User) error {
+func (db *DB) Register(user *proto.User) error {
 	_, err := db.Exec(`INSERT INTO users VALUES(?,?,?,?)`,
 		user.ID,
 		user.Name,
@@ -48,9 +48,9 @@ func (db *DB) IsIDExist(ID string) bool {
 	return false
 }
 
-func (db *DB) UserData(ID string) *protocol.User {
+func (db *DB) UserData(ID string) *proto.User {
 	log.Print("Enter DB.UserData")
-	var user protocol.User
+	var user proto.User
 	err := db.QueryRow("SELECT * FROM users WHERE id=?", ID).Scan(
 		&user.ID, &user.Name, &user.Sex, &user.Birth)
 	if err != nil {
@@ -60,28 +60,27 @@ func (db *DB) UserData(ID string) *protocol.User {
 	return &user
 }
 
-func (db *DB) PreserveMessage(data *protocol.Data) error {
+func (db *DB) PreserveMessage(data *proto.Data) error {
 	_, err := db.Exec("INSERT INTO messages VALUES(?,?,?,?)",
-		data.Time, data.ID, data.Receiver.ID, data.Content)
+		data.Time, data.Sender, data.Receiver, data.Content)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db *DB) MessagePreserved(ID string) []protocol.Data {
-	rows, err := db.Query("SELECT time, sender, name, sex, birth, receiver, content from users, messages where id=sender and receiver=?", ID)
+func (db *DB) RestoreMessage(ID string) []proto.Data {
+	rows, err := db.Query("SELECT time, sender, receiver, content from users, messages where id=sender and receiver=?", ID)
 	if err != nil {
 		log.Print(err)
 		return nil
 	}
 	defer rows.Close()
-	var datas []protocol.Data
+	var datas []proto.Data
 	for rows.Next() {
-		var data protocol.Data
-		if err := rows.Scan(&data.Time,
-			&data.ID, &data.Name, &data.Sex, &data.Birth,
-			&data.Receiver.ID, &data.Content); err != nil {
+		var data proto.Data
+		if err := rows.Scan(&data.Time, &data.Sender,
+			&data.Receiver, &data.Content); err != nil {
 			log.Print(err)
 			return nil
 		}

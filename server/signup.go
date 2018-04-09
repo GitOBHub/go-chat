@@ -4,26 +4,25 @@ import (
 	"log"
 
 	"go-chat/chat"
-	"go-chat/protocol"
+	"go-chat/proto"
 )
 
-func signup(conn *chat.Connection, data *protocol.Data) {
-	conn.User = data.User
-	mu.Lock()
-	defer mu.Unlock()
-	_, dup := clients[conn.ID]
+func signup(conn *chat.ChatConn, content string) {
+	user := proto.DecodeUser(content)
+	_, dup := clients[user.ID]
 	if dup {
-		conn.SendErrorf("ID %s is already taken", conn.ID)
+		conn.SendErrorf("signup", "ID %s is already taken", user.ID)
 		return
 	}
-	err := db.Register(&conn.User)
-	if err != nil {
-		conn.SendErrorf("ID %s is already taken", conn.ID)
+	if err := db.Register(user); err != nil {
+		conn.SendErrorf("signup", "ID %s is already taken", user.ID)
 		return
 	}
-	clients[conn.ID] = conn
-	connIDs[conn.Number] = data.ID
-	conn.SendOther("signup")
+
+	conn.SendSuccess("signup", "")
+	conn.User = *user
+	clients[user.ID] = conn
+	//	connIDs[conn.Number] = user.ID
 	log.Printf("ID %s sign up", conn.ID)
 	return
 }
