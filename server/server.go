@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"net"
 	"sync"
 	"time"
 
@@ -13,16 +14,16 @@ import (
 )
 
 var (
-	clients map[string]*chat.ChatConn
-	connIDs map[int]string
-	db      *database.DB
-	mu      sync.Mutex
+	clients     map[string]*chat.ChatConn
+	connections map[net.Addr]string
+	db          *database.DB
+	mu          sync.Mutex
 )
 
 func NewChatServer(addr string, d *database.DB) *server.Server {
 	s := server.NewServer(addr)
 	clients = make(map[string]*chat.ChatConn, 10)
-	connIDs = make(map[int]string, 10)
+	connections = make(map[net.Addr]string, 10)
 	db = d
 	s.MessageHandleFunc(HandleMessage)
 	s.ConnectionHandleFunc(HandleConnection)
@@ -67,15 +68,15 @@ func HandleMessage(c *conns.Conn, b []byte) {
 }
 
 func HandleConnection(c *conns.Conn) {
-	/*if !c.Connected {
+	if !c.Connected {
 		mu.Lock()
 		defer mu.Unlock()
-		name, ok := connIDs[c.Number]
+		name, ok := connections[c.RemoteAddr()]
 		if !ok {
 			return
 		}
 		delete(clients, name)
-		delete(connIDs, c.Number)
+		delete(connections, c.RemoteAddr())
 		log.Print(clients)
-	}*/
+	}
 }

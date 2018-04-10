@@ -32,6 +32,6 @@ func login(conn *chat.ChatConn, content string) {
 	conn.SendSuccess("login", toSend)
 	conn.User = *user
 	clients[user.ID] = conn
-	//	connIDs[conn.Number] = user.ID
+	connections[conn.RemoteAddr()] = user.ID
 	return
 }

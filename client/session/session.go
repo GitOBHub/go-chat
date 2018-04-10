@@ -136,13 +136,11 @@ func (s *Session) printMessageBlock(msg *proto.Message, whichSide int) {
 		if utf8.RuneLen(r) == 3 && !ok { //3 bytes per rune, printed in 2 space
 			lenPrint += 2
 			if lenPrint == 16 {
-				print(lenPrint, "\n")
-				tempRunes := append(msgRunes[eol:i], rune(' '))
-				lines = append(lines, tempRunes)
+				temp := string(msgRunes[eol:i]) + " "
+				lines = append(lines, []rune(temp))
 				eol = i
 				lenPrint = 2
 			} else if lenPrint == 15 {
-				print(lenPrint, "\n")
 				lines = append(lines, msgRunes[eol:i+1])
 				eol = i + 1
 				lenPrint = 0
@@ -150,7 +148,6 @@ func (s *Session) printMessageBlock(msg *proto.Message, whichSide int) {
 		} else { //1or2or3 bytes per rune, printed in 1 space
 			lenPrint += 1
 			if lenPrint == 15 {
-				print(lenPrint, "\n")
 				lines = append(lines, msgRunes[eol:i+1])
 				eol = i + 1
 				lenPrint = 0

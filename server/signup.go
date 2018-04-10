@@ -22,7 +22,7 @@ func signup(conn *chat.ChatConn, content string) {
 	conn.SendSuccess("signup", "")
 	conn.User = *user
 	clients[user.ID] = conn
-	//	connIDs[conn.Number] = user.ID
+	connections[conn.RemoteAddr()] = user.ID
 	log.Printf("ID %s sign up", conn.ID)
 	return
 }

@@ -112,6 +112,12 @@ func handleConnInput(conn *chat.ChatConn) {
 				loginDone <- data
 			case "signup":
 				signupDone <- data
+			default:
+				if data.Type == proto.Error {
+					color.PrintErrorln(" %s ", data.Content)
+				} else {
+					color.PrintPrompt(" %s \n", data.Content)
+				}
 			}
 			continue
 		}
