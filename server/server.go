@@ -13,24 +13,23 @@ import (
 	"go-chat/proto"
 )
 
-var (
+type ChatServer struct {
 	clients     map[string]*chat.ChatConn
 	connections map[net.Addr]string
 	db          *database.DB
 	mu          sync.Mutex
-)
+}
 
 func NewChatServer(addr string, d *database.DB) *server.Server {
-	s := server.NewServer(addr)
-	clients = make(map[string]*chat.ChatConn, 10)
-	connections = make(map[net.Addr]string, 10)
-	db = d
-	s.MessageHandleFunc(HandleMessage)
-	s.ConnectionHandleFunc(HandleConnection)
+	cs := new(ChatServer)
+	cs.clients = make(map[string]*chat.ChatConn, 10)
+	cs.connections = make(map[net.Addr]string, 10)
+	cs.db = d
+	s := server.NewServer(addr, cs)
 	return s
 }
 
-func HandleMessage(c *conns.Conn, b []byte) {
+func (srv *ChatServer) HandleMessage(c *conns.Conn, b []byte) {
 	log.Print("Enter handleMessage")
 	conn := &chat.ChatConn{Conn: *c}
 	data := proto.DecodeData(b)
@@ -38,26 +37,26 @@ func HandleMessage(c *conns.Conn, b []byte) {
 		conn.SendError("", "Bad request")
 		return
 	}
-	mu.Lock()
-	defer mu.Unlock()
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 
 	if data.Type == proto.Request {
 		log.Print("data is Request")
 		switch data.Topic {
 		case "isIDExist":
-			isIDExist(conn, data.Content)
+			srv.isIDExist(conn, data.Content)
 		case "login":
-			login(conn, data.Content)
+			srv.login(conn, data.Content)
 		case "signup":
-			signup(conn, data.Content)
+			srv.signup(conn, data.Content)
 		}
 		return
 	}
-	client, ok := clients[data.Receiver]
+	client, ok := srv.clients[data.Receiver]
 	if !ok {
 		conn.SendErrorf("", "%s is offline", data.Receiver)
 		if data.Type == proto.Normal {
-			db.PreserveMessage(data)
+			srv.db.PreserveMessage(data)
 		}
 		return
 	}
@@ -67,16 +66,16 @@ func HandleMessage(c *conns.Conn, b []byte) {
 	}
 }
 
-func HandleConnection(c *conns.Conn) {
+func (srv *ChatServer) HandleConn(c *conns.Conn) {
 	if !c.Connected {
-		mu.Lock()
-		defer mu.Unlock()
-		name, ok := connections[c.RemoteAddr()]
+		srv.mu.Lock()
+		defer srv.mu.Unlock()
+		name, ok := srv.connections[c.RemoteAddr()]
 		if !ok {
 			return
 		}
-		delete(clients, name)
-		delete(connections, c.RemoteAddr())
-		log.Print(clients)
+		delete(srv.clients, name)
+		delete(srv.connections, c.RemoteAddr())
+		log.Print(srv.clients)
 	}
 }

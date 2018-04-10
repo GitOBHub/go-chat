@@ -7,22 +7,22 @@ import (
 	"go-chat/proto"
 )
 
-func signup(conn *chat.ChatConn, content string) {
+func (srv *ChatServer) signup(conn *chat.ChatConn, content string) {
 	user := proto.DecodeUser(content)
-	_, dup := clients[user.ID]
+	_, dup := srv.clients[user.ID]
 	if dup {
 		conn.SendErrorf("signup", "ID %s is already taken", user.ID)
 		return
 	}
-	if err := db.Register(user); err != nil {
+	if err := srv.db.Register(user); err != nil {
 		conn.SendErrorf("signup", "ID %s is already taken", user.ID)
 		return
 	}
 
 	conn.SendSuccess("signup", "")
 	conn.User = *user
-	clients[user.ID] = conn
-	connections[conn.RemoteAddr()] = user.ID
+	srv.clients[user.ID] = conn
+	srv.connections[conn.RemoteAddr()] = user.ID
 	log.Printf("ID %s sign up", conn.ID)
 	return
 }
