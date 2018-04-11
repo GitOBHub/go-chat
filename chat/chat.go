@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GitOBHub/net/conns"
+	"github.com/gitobhub/net/conns"
 	"go-chat/proto"
 )
 

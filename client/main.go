@@ -11,8 +11,8 @@ import (
 	"unicode"
 
 	"go-chat/chat"
+	"go-chat/client/color"
 	"go-chat/client/session"
-	"go-chat/color"
 	"go-chat/proto"
 )
 

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GitOBHub/net/conns"
-	"github.com/GitOBHub/net/server"
+	"github.com/gitobhub/net/conns"
+	"github.com/gitobhub/net/server"
 	"go-chat/chat"
 	"go-chat/database"
 	"go-chat/proto"

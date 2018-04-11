@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"go-chat/color"
+	"go-chat/client/color"
 	"go-chat/proto"
 )
 
@@ -31,7 +31,7 @@ var (
 //var symbolStr = "‘’“”…·①②③④⑤⑥⑦⑧⑨⑩
 var symbols = map[rune]bool{
 	'‘': true, '’': true, '“': true,
-	'”': true, '…': true,
+	'”': true, '…': true, '—': true,
 }
 
 const (
@@ -154,11 +154,13 @@ func (s *Session) printMessageBlock(msg *proto.Message, whichSide int) {
 			}
 		}
 	}
-	lines = append(lines, msgRunes[eol:])
+	if eol != len(msgRunes) {
+		lines = append(lines, msgRunes[eol:])
+	}
 
 	var placePrint int
 	if whichSide == right {
-		if len(lines) == 1 && lenPrint < 15 {
+		if len(lines) == 1 && lenPrint < 15 && lenPrint != 0 {
 			placePrint = 50 - lenPrint
 		} else {
 			placePrint = 35
@@ -183,7 +185,7 @@ func (s *Session) printMessageBlock(msg *proto.Message, whichSide int) {
 			fmt.Printf("\033[%dC", placePrint)
 			color.PrintPrompt(" %s ", string(line))
 		}
-		if i == len(lines)-1 && len(lines) > 1 && lenPrint < 15 {
+		if i == len(lines)-1 && len(lines) > 1 && lenPrint < 15 && lenPrint > 0 {
 			for i := 0; i < 15-lenPrint; i++ {
 				if whichSide == right {
 					fmt.Print("\033[42;30m \033[0m")

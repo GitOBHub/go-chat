@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"go-chat/chat"
-	"go-chat/color"
+	"go-chat/client/color"
 	"go-chat/proto"
 )
 
