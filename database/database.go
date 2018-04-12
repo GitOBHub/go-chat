@@ -49,7 +49,6 @@ func (db *DB) IsIDExist(ID string) bool {
 }
 
 func (db *DB) UserData(ID string) *proto.User {
-	log.Print("Enter DB.UserData")
 	var user proto.User
 	err := db.QueryRow("SELECT * FROM users WHERE id=?", ID).Scan(
 		&user.ID, &user.Name, &user.Sex, &user.Birth)
@@ -87,7 +86,6 @@ func (db *DB) RestoreMessage(ID string) []proto.Data {
 		datas = append(datas, data)
 	}
 	if len(datas) == 0 {
-		log.Print("none")
 		return nil
 	}
 	if _, err := db.Exec("DELETE FROM messages WHERE receiver=?", ID); err != nil {

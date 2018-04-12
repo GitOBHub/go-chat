@@ -7,7 +7,7 @@ import (
 	"go-chat/proto"
 )
 
-func (srv *ChatServer) signup(conn *chat.ChatConn, content string) {
+func (srv *ChatServerHandler) signup(conn *chat.ChatConn, content string) {
 	user := proto.DecodeUser(content)
 	_, dup := srv.clients[user.ID]
 	if dup {
@@ -22,7 +22,6 @@ func (srv *ChatServer) signup(conn *chat.ChatConn, content string) {
 	conn.SendSuccess("signup", "")
 	conn.User = *user
 	srv.clients[user.ID] = conn
-	srv.connections[conn.RemoteAddr()] = user.ID
 	log.Printf("ID %s sign up", conn.ID)
 	return
 }

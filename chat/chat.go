@@ -22,6 +22,10 @@ func NewChatConn(c net.Conn) *ChatConn {
 	return &ChatConn{Conn: *conn}
 }
 
+func (chatConn *ChatConn) New(c net.Conn) conns.ConnInterface {
+	return NewChatConn(c)
+}
+
 func (conn *ChatConn) ReadData() *proto.Data {
 	data, err := conn.Recv()
 	if err != nil {

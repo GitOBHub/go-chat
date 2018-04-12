@@ -2,7 +2,6 @@ package server
 
 import (
 	"log"
-	"net"
 	"sync"
 	"time"
 
@@ -13,25 +12,24 @@ import (
 	"go-chat/proto"
 )
 
-type ChatServer struct {
-	clients     map[string]*chat.ChatConn
-	connections map[net.Addr]string
-	db          *database.DB
-	mu          sync.Mutex
+type ChatServerHandler struct {
+	clients map[string]*chat.ChatConn
+	db      *database.DB
+	mu      sync.Mutex
 }
 
 func NewChatServer(addr string, d *database.DB) *server.Server {
-	cs := new(ChatServer)
+	cs := new(ChatServerHandler)
 	cs.clients = make(map[string]*chat.ChatConn, 10)
-	cs.connections = make(map[net.Addr]string, 10)
 	cs.db = d
 	s := server.NewServer(addr, cs)
+	c := new(chat.ChatConn)
+	s.SetConnType(c)
 	return s
 }
 
-func (srv *ChatServer) HandleMessage(c *conns.Conn, b []byte) {
-	log.Print("Enter handleMessage")
-	conn := &chat.ChatConn{Conn: *c}
+func (srv *ChatServerHandler) HandleMessage(c conns.ConnInterface, b []byte) {
+	conn := c.(*chat.ChatConn)
 	data := proto.DecodeData(b)
 	if data.Type == proto.Error || data.Type == proto.Success {
 		conn.SendError("", "Bad request")
@@ -41,7 +39,6 @@ func (srv *ChatServer) HandleMessage(c *conns.Conn, b []byte) {
 	defer srv.mu.Unlock()
 
 	if data.Type == proto.Request {
-		log.Print("data is Request")
 		switch data.Topic {
 		case "isIDExist":
 			srv.isIDExist(conn, data.Content)
@@ -66,16 +63,12 @@ func (srv *ChatServer) HandleMessage(c *conns.Conn, b []byte) {
 	}
 }
 
-func (srv *ChatServer) HandleConn(c *conns.Conn) {
-	if !c.Connected {
+func (srv *ChatServerHandler) HandleConn(c conns.ConnInterface) {
+	conn := c.(*chat.ChatConn)
+	if !conn.Connected {
 		srv.mu.Lock()
 		defer srv.mu.Unlock()
-		name, ok := srv.connections[c.RemoteAddr()]
-		if !ok {
-			return
-		}
-		delete(srv.clients, name)
-		delete(srv.connections, c.RemoteAddr())
+		delete(srv.clients, conn.User.ID)
 		log.Print(srv.clients)
 	}
 }
