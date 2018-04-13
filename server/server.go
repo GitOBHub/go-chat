@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gitobhub/net/conns"
 	"github.com/gitobhub/net/server"
 	"go-chat/chat"
 	"go-chat/database"
@@ -28,7 +27,7 @@ func NewChatServer(addr string, d *database.DB) *server.Server {
 	return s
 }
 
-func (srv *ChatServerHandler) HandleMessage(c conns.ConnInterface, b []byte) {
+func (srv *ChatServerHandler) HandleMessage(c server.ConnInterface, b []byte) {
 	conn := c.(*chat.ChatConn)
 	data := proto.DecodeData(b)
 	if data.Type == proto.Error || data.Type == proto.Success {
@@ -63,7 +62,7 @@ func (srv *ChatServerHandler) HandleMessage(c conns.ConnInterface, b []byte) {
 	}
 }
 
-func (srv *ChatServerHandler) HandleConn(c conns.ConnInterface) {
+func (srv *ChatServerHandler) HandleConn(c server.ConnInterface) {
 	conn := c.(*chat.ChatConn)
 	if !conn.Connected {
 		srv.mu.Lock()

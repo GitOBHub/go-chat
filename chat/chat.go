@@ -2,42 +2,59 @@ package chat
 
 import (
 	"fmt"
-	"log"
+	"io"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/gitobhub/net/conns"
+	"github.com/gitobhub/net/server"
 	"go-chat/proto"
 )
 
 type ChatConn struct {
-	conns.Conn
+	server.Conn
 	proto.User
 	Mu sync.Mutex
 }
 
 func NewChatConn(c net.Conn) *ChatConn {
-	conn := conns.NewConn(c)
+	conn := server.NewConn(c)
 	return &ChatConn{Conn: *conn}
 }
 
-func (chatConn *ChatConn) New(c net.Conn) conns.ConnInterface {
+func (chatConn *ChatConn) New(c net.Conn) server.ConnInterface {
 	return NewChatConn(c)
+}
+
+func (conn *ChatConn) Recv() ([]byte, error) {
+	dataLenStr, err := conn.Reader.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+	dataLenStr = strings.TrimSuffix(dataLenStr, "\r\n")
+	dataLen, err := strconv.Atoi(dataLenStr)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]byte, dataLen)
+	conn.Reader.Read(data)
+	return data, nil
 }
 
 func (conn *ChatConn) ReadData() *proto.Data {
 	data, err := conn.Recv()
 	if err != nil {
-		log.Print("*ChatConn.ReadData: Read ", err)
 		return nil
 	}
 	return proto.DecodeData(data)
 }
 
 func (conn *ChatConn) SendData(data *proto.Data) (int, error) {
-	toSend := proto.EncodeData(data)
-	return conn.Send(toSend)
+	toSend := string(proto.EncodeData(data))
+	toSend = strconv.Itoa(len(toSend)) + "\r\n" + toSend
+	return io.WriteString(conn, toSend)
 }
 
 //Called by server
