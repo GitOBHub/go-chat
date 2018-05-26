@@ -62,7 +62,7 @@ func (srv *ChatServerHandler) HandleMessage(c server.ConnInterface, b []byte) {
 	}
 }
 
-func (srv *ChatServerHandler) HandleConn(c server.ConnInterface) {
+func (srv *ChatServerHandler) HandleClose(c server.ConnInterface) {
 	conn := c.(*chat.ChatConn)
 	if !conn.Connected {
 		srv.mu.Lock()

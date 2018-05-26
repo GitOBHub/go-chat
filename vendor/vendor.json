@@ -1,0 +1,25 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "7RWyN883ABJ6NE+TgXnHpIyToL0=",
+			"path": "github.com/gitobhub/net/server",
+			"revision": "645a386638a6a08465eccd20ad061e7b1ebffa53",
+			"revisionTime": "2018-04-13T16:07:24Z"
+		},
+		{
+			"checksumSHA1": "K6icEVf2CuBzhLm/MGpRd1btshM=",
+			"path": "github.com/go-sql-driver/mysql",
+			"revision": "1a676ac6e4dce68e9303a1800773861350374a9e",
+			"revisionTime": "2018-03-08T10:03:10Z"
+		},
+		{
+			"checksumSHA1": "EK2VP/7bE/h7Lnutma8UHWkOJsQ=",
+			"path": "github.com/go-yaml/yaml",
+			"revision": "5420a8b6744d3b0345ab293f6fcba19c978f1183",
+			"revisionTime": "2018-03-28T19:50:20Z"
+		}
+	],
+	"rootPath": "go-chat"
+}
