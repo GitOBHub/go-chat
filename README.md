@@ -1,7 +1,10 @@
 # go-chat
 chat server and client
 
-## INSTALL
+## Screenshots
+![file](screenshots/go-chat.png)
+
+## Start
 ```
 git clone github.com/gitobhub/go-chat
 cd go-chat/
